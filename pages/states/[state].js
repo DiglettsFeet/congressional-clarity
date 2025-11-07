@@ -1,6 +1,42 @@
-// File: pages/states/[state].js
-import Link from "next/link";
+// File: lib/congress.js
+// Simple, closest to your original: query param auth only + tiny guard.
 
+import axios from "axios";
+
+const BASE_URL = "https://api.congress.gov/v3";
+const API_KEY = process.env.CONGRESS_API_KEY; // <- unchanged var name
+
+const client = axios.create({
+  baseURL: BASE_URL,
+  timeout: 15000,
+});
+
+// Helper to GET with query-param key; no headers.
+async function getJson(path, params = {}) {
+  if (!API_KEY) {
+    const e = new Error("Missing CONGRESS_API_KEY");
+    e.status = 500;
+    throw e;
+  }
+  try {
+    const res = await client.get(path, {
+      params: { ...params, api_key: API_KEY },
+    });
+    return res.data;
+  } catch (err) {
+    const status = err?.response?.status || 502;
+    const e = new Error(
+      status === 401
+        ? "Congress.gov returned 401 (check API key value and redeploy)"
+        : `Congress.gov request failed (${status})`
+    );
+    e.status = status;
+    e.details = err?.response?.data || null;
+    throw e;
+  }
+}
+
+// State map (unchanged)
 const STATE_NAME = {
   AL:"Alabama", AK:"Alaska", AZ:"Arizona", AR:"Arkansas", CA:"California",
   CO:"Colorado", CT:"Connecticut", DE:"Delaware", FL:"Florida", GA:"Georgia",
@@ -15,57 +51,33 @@ const STATE_NAME = {
   WV:"West Virginia", WI:"Wisconsin", WY:"Wyoming"
 };
 
-export async function getServerSideProps({ params, req }) {
-  const { state } = params;
-  const code = String(state || "").toUpperCase();
-  const stateName = STATE_NAME[code] || null;
-
-  // Why: ensure absolute URL in server context on Vercel/local
-  const proto = req.headers["x-forwarded-proto"] || "http";
-  const host = req.headers["x-forwarded-host"] || req.headers.host;
-  const baseUrl = `${proto}://${host}`;
-
-  if (!stateName) {
-    return { props: { code, stateName: null, members: [], error: "Invalid state code" } };
-  }
-
-  try {
-    const r = await fetch(`${baseUrl}/api/members?state=${code}`, { cache: "no-store" });
-    if (!r.ok) {
-      const body = await r.json().catch(() => ({}));
-      return { props: { code, stateName, members: [], error: body.error || `API ${r.status}` } };
-    }
-    const { members = [] } = await r.json();
-    return { props: { code, stateName, members, error: null } };
-  } catch (e) {
-    return { props: { code, stateName, members: [], error: e.message || "Fetch failed" } };
-  }
+export async function getMembers(chamber, congress) {
+  const d = await getJson(`/member/${chamber}`, { congress, limit: 500 });
+  return d?.members || [];
 }
 
-export default function StatePage({ code, stateName, members, error }) {
-  return (
-    <main className="container" style={{ padding: 16 }}>
-      <Link href="/states">← Back</Link>
-      <h1>Representatives for {code}</h1>
+export async function getMemberInfo(memberId) {
+  const d = await getJson(`/member/${memberId}`);
+  return d?.member || null;
+}
 
-      {error && (
-        <div role="alert" style={{ border: "1px solid #ddd", padding: 12, marginTop: 8 }}>
-          <strong>Couldn’t load members.</strong>
-          <div style={{ marginTop: 4 }}>{error}</div>
-        </div>
-      )}
+export async function getMemberVotes(memberId) {
+  const d = await getJson(`/member/${memberId}/votes`, { limit: 500 });
+  return d?.votes || [];
+}
 
-      {!error && members.length === 0 && (
-        <p style={{ marginTop: 12 }}>No members found for {stateName}.</p>
-      )}
+export async function getSponsoredLegislation(memberId) {
+  const d = await getJson(`/member/${memberId}/sponsored-legislation`, { limit: 500 });
+  return d?.legislation || [];
+}
 
-      <ul style={{ marginTop: 12 }}>
-        {members.map((m) => (
-          <li key={m.bioguideId}>
-            <Link href={`/member/${m.bioguideId}`}>{m.name || `${m.firstName} ${m.lastName}`}</Link>
-          </li>
-        ))}
-      </ul>
-    </main>
-  );
+export async function getBillDetails(billNumber, congress) {
+  const d = await getJson(`/bill/${congress}/${billNumber}`);
+  return d?.bill || null;
+}
+
+export function membersByState(allMembers, code) {
+  const name = STATE_NAME[(code || "").toUpperCase()];
+  if (!name) return [];
+  return (allMembers || []).filter((m) => m.state === name);
 }
