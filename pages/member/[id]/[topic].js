@@ -1,56 +1,46 @@
 // pages/member/[id]/[topic].js
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
-import Link from "next/link";
 
-export default function MemberTopicPage() {
+export default function TopicPage() {
   const router = useRouter();
   const { id, topic } = router.query;
 
-  const [votes, setVotes] = useState([]);
+  const [data, setData] = useState(null);
 
   useEffect(() => {
     if (!id) return;
 
-    fetch(`/api/votes?id=${id}`)
-      .then((r) => r.json())
-      .then((d) => setVotes(d.votes || []));
-  }, [id]);
+    async function fetchVotes() {
+      const res = await fetch(`/api/member-info?id=${id}`);
+      const result = await res.json();
+      setData(result.categories[topic]);
+    }
+
+    fetchVotes();
+  }, [id, topic]);
+
+  if (!data) return <h2>Loading…</h2>;
 
   return (
-    <div className="container">
-      <Link href={`/member/${id}`}>← Back</Link>
-      <h1>Votes on: {topic}</h1>
+    <div style={{ padding: "24px" }}>
+      <button onClick={() => router.push(`/member/${id}`)}>
+        ← Back to {id}
+      </button>
 
-      {votes.length === 0 && <div>No voting data available.</div>}
-
-      <table className="vote-table">
-        <thead>
-          <tr>
-            <th>Bill</th>
-            <th>Result</th>
-            <th>Vote</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {votes.map((v, i) => (
-            <tr key={i}>
-              <td>
-                <a href={v?.bill?.url} target="_blank" rel="noopener noreferrer">
-                  {v?.bill?.title || v?.bill?.number}
-                </a>
-              </td>
-              <td>{v.voteResult}</td>
-              <td>
-                {v.position === "Yes" && "Yes"}
-                {v.position === "No" && "No"}
-                {!v.position && "Did Not Vote"}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <h1>{topic} Bills</h1>
+      {data.map((entry, idx) => (
+        <div key={idx} style={{ border: "1px solid #ccc", padding: 16, marginBottom: 10 }}>
+          <strong>{entry.bill.title}</strong>
+          <br />
+          <strong>Vote:</strong> {entry.vote}
+          <br />
+          <p>{entry.bill.summary}</p>
+          <a href={entry.bill.url} target="_blank" rel="noopener noreferrer">
+            Open Bill →
+          </a>
+        </div>
+      ))}
     </div>
   );
 }
