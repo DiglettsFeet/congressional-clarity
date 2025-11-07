@@ -7,10 +7,12 @@ export default async function handler(req, res) {
   try {
     const votes = await getMemberVotes(memberId);
 
+    // Filter votes by topic/category text matching
     const matchingVotes = votes.filter(v =>
       (v?.issue?.toLowerCase() || "").includes(topic.toLowerCase())
     );
 
+    // Fetch bill details + summary + link
     const detailed = await Promise.all(
       matchingVotes.map(async (v) => {
         const bill = await getBillDetails(v.congress, v.bill.number);
@@ -24,7 +26,8 @@ export default async function handler(req, res) {
     );
 
     res.status(200).json({ topic, bills: detailed });
-  } catch (e) {
-    res.status(500).json({ error: "Server error" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Could not fetch votes for topic" });
   }
 }
