@@ -6,7 +6,7 @@ import Link from "next/link";
 export default function StatePage() {
   const router = useRouter();
   const { state } = router.query;
-  const [members, setMembers] = useState(null);
+  const [members, setMembers] = useState(null); // null = loading
 
   useEffect(() => {
     if (!state) return;
@@ -22,19 +22,12 @@ export default function StatePage() {
       <h1>Representatives for {state}</h1>
 
       {members === null && <p>Loading…</p>}
-
-      {members?.length === 0 && (
-        <p>No representatives found or no data returned.</p>
-      )}
+      {members?.length === 0 && <p>No representatives found.</p>}
 
       {members?.map((m) => (
         <div key={m.bioguideId}>
           <Link href={`/member/${m.bioguideId}`}>
-            <b>
-              {m.firstName} {m.lastName}
-            </b>
-            {" — "}
-            {m.party}
+            {m.firstName} {m.lastName} ({m.party})
           </Link>
         </div>
       ))}
