@@ -1,14 +1,15 @@
-// pages/api/members.js
-import { getMembersByState } from "../../lib/congress";
+// ✅ Get all members for a state
+export async function getMembersByState(state) {
+  // We fetch the congressional list (up to 250 members)
+  const data = await apiGet(`/member?limit=250&page=1`);
 
-export default async function handler(req, res) {
-  const { state } = req.query;
+  // Congress API returns members under `members.member`
+  const members = data?.members?.member || [];
 
-  try {
-    const members = await getMembersByState(state);
-    res.status(200).json({ state, members });
-  } catch (err) {
-    console.error("Member API Error:", err);
-    res.status(500).json({ error: "Could not fetch members" });
-  }
+  // Filter members by state code
+  return members.filter(
+    (m) =>
+      m.state?.toUpperCase() === state.toUpperCase() ||
+      m.stateCode?.toUpperCase() === state.toUpperCase()
+  );
 }
