@@ -1,18 +1,11 @@
-// pages/api/members.js
-import { getMembersByState } from "../../lib/congress";
+import { getCurrentMembers } from "../../lib/congress";
 
 export default async function handler(req, res) {
-  const state = req.query.state;
-
-  if (!state) {
-    return res.status(400).json({ error: "Missing ?state=XX" });
-  }
-
   try {
-    const members = await getMembersByState(state);
-    return res.status(200).json({ state, members });
+    const members = await getCurrentMembers();
+    res.status(200).json({ members });
   } catch (err) {
-    console.error("❌ Member API Error:", err.response?.data || err.message);
-    return res.status(500).json({ state, members: [] });
+    console.error("❌ API /members Error:", err);
+    res.status(500).json({ error: true });
   }
 }
