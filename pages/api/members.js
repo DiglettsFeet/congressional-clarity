@@ -1,15 +1,18 @@
-// ✅ Get all members for a state
-export async function getMembersByState(state) {
-  // We fetch the congressional list (up to 250 members)
-  const data = await apiGet(`/member?limit=250&page=1`);
+import { getMembersByState } from "../../lib/congress";
 
-  // Congress API returns members under `members.member`
-  const members = data?.members?.member || [];
+export default async function handler(req, res) {
+  try {
+    const state = req.query.state?.toUpperCase();
+    if (!state) return res.status(400).json({ error: "State code required" });
 
-  // Filter members by state code
-  return members.filter(
-    (m) =>
-      m.state?.toUpperCase() === state.toUpperCase() ||
-      m.stateCode?.toUpperCase() === state.toUpperCase()
-  );
+    const members = await getMembersByState(state);
+
+    res.status(200).json({
+      state,
+      members,
+    });
+  } catch (err) {
+    console.error("Member API Error:", err);
+    res.status(500).json({ error: "Failed to fetch members" });
+  }
 }
