@@ -1,0 +1,194 @@
+// File: pages/api/health.js
+export default function handler(_req, res) {
+  const hasKey = Boolean(process.env.CONGRESS_API_KEY);
+  res.status(200).json({ ok: true, hasKey });
+}
+
+// File: lib/congress.js
+// Hardened client with cache, retries, and API key guard.
+import axios from "axios";
+
+const BASE_URL = "https://api.congress.gov/v3";
+const API_KEY = process.env.CONGRESS_API_KEY;
+
+const cache = new Map();
+const DEFAULT_TTL_MS = 60_000;
+const LONG_TTL_MS = 5 * 60_000;
+
+const client = axios.create({ baseURL: BASE_URL, timeout: 15_000 });
+
+function cacheKey(url) { return url; }
+function getCached(url) {
+  const hit = cache.get(cacheKey(url));
+  if (!hit) return null;
+  if (Date.now() > hit.expiresAt) { cache.delete(cacheKey(url)); return null; }
+  return hit.data;
+}
+function setCached(url, data, ttl = DEFAULT_TTL_MS) {
+  cache.set(cacheKey(url), { data, expiresAt: Date.now() + ttl });
+}
+
+async function getJson(path, { params = {}, ttl = DEFAULT_TTL_MS, attempts = 3 } = {}) {
+  if (!API_KEY) {
+    const e = new Error("Missing CONGRESS_API_KEY");
+    e.status = 500;
+    throw e;
+  }
+  const url = `${path}?${new URLSearchParams({ ...params, api_key: API_KEY })}`;
+  const cached = getCached(url);
+  if (cached) return cached;
+
+  let lastErr;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await client.get(url);
+      setCached(url, res.data, ttl);
+      return res.data;
+    } catch (err) {
+      lastErr = err;
+      const s = err?.response?.status;
+      if (s && s < 500 && s !== 429) break;
+      await new Promise(r => setTimeout(r, 250 * (2 ** i)));
+    }
+  }
+  const e = new Error(`Congress.gov failed for ${path}`);
+  e.status = lastErr?.response?.status || 502;
+  e.details = lastErr?.response?.data || null;
+  throw e;
+}
+
+export async function getMembers(chamber, congress) {
+  const d = await getJson(`/member/${chamber}`, { params: { congress, limit: 500 }, ttl: LONG_TTL_MS });
+  return d?.members || [];
+}
+export async function getMemberInfo(memberId) {
+  const d = await getJson(`/member/${memberId}`, { ttl: LONG_TTL_MS });
+  return d?.member || null;
+}
+export async function getMemberVotes(memberId) {
+  const d = await getJson(`/member/${memberId}/votes`, { params: { limit: 500 } });
+  return d?.votes || [];
+}
+export async function getSponsoredLegislation(memberId) {
+  const d = await getJson(`/member/${memberId}/sponsored-legislation`, { params: { limit: 500 } });
+  return d?.legislation || [];
+}
+export async function getBillDetails(billNumber, congress) {
+  const d = await getJson(`/bill/${congress}/${billNumber}`, { ttl: LONG_TTL_MS });
+  return d?.bill || null;
+}
+
+// File: pages/api/members.js
+import { getMembers } from "../../lib/congress";
+export default async function handler(req, res) {
+  const { chamber, congress } = req.query;
+  if (!chamber || !congress) return res.status(400).json({ error: "Missing params" });
+  try {
+    const members = await getMembers(chamber, congress);
+    res.status(200).json({ members });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message, details: e.details || null });
+  }
+}
+
+// File: pages/api/member-info.js
+import { getMemberInfo } from "../../lib/congress";
+export default async function handler(req, res) {
+  const { id } = req.query;
+  if (!id) return res.status(400).json({ error: "Member ID required" });
+  try {
+    res.status(200).json({ member: await getMemberInfo(id) });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message, details: e.details || null });
+  }
+}
+
+// File: pages/api/votes.js
+import { getMemberVotes } from "../../lib/congress";
+export default async function handler(req, res) {
+  const { id } = req.query;
+  if (!id) return res.status(400).json({ error: "Member ID required" });
+  try {
+    res.status(200).json({ memberId: id, votes: await getMemberVotes(id) });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message, details: e.details || null });
+  }
+}
+
+// File: pages/api/sponsored-legislation.js
+import { getSponsoredLegislation } from "../../lib/congress";
+export default async function handler(req, res) {
+  const { id } = req.query;
+  if (!id) return res.status(400).json({ error: "Member ID required" });
+  try {
+    res.status(200).json({ memberId: id, legislation: await getSponsoredLegislation(id) });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message, details: e.details || null });
+  }
+}
+
+// File: pages/api/bills.js
+import { getBillDetails } from "../../lib/congress";
+export default async function handler(req, res) {
+  const { congress, bill } = req.query;
+  if (!congress || !bill) return res.status(400).json({ error: "Missing params" });
+  try {
+    const d = await getBillDetails(bill, congress);
+    res.status(200).json({
+      bill, congress,
+      summary: d?.summaries?.[0]?.text || "No summary available.",
+      topic: d?.policyArea?.name || "Uncategorized",
+      url: d?.url || null,
+    });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message, details: e.details || null });
+  }
+}
+
+// File: pages/states/[state].js  (add user-friendly fallback if API fails)
+import { useEffect, useState } from "react";
+import Link from "next/link";
+
+export default function StatePage({ state }) {
+  const [members, setMembers] = useState([]);
+  const [err, setErr] = useState(null);
+
+  useEffect(() => {
+    async function run() {
+      try {
+        const r = await fetch(`/api/members?chamber=house&congress=118`);
+        if (!r.ok) throw new Error((await r.json()).error || "Failed");
+        const { members } = await r.json();
+        setMembers(members.filter(m => (m?.state === state?.fullName)));
+      } catch (e) {
+        setErr(e.message || "Failed to load members");
+      }
+    }
+    run();
+  }, [state?.fullName]);
+
+  return (
+    <main style={{ padding: 16 }}>
+      <Link href="/states">← Back</Link>
+      <h1>Representatives for {state?.code}</h1>
+      {err && (
+        <div role="alert" style={{ border: "1px solid #ccc", padding: 12, marginTop: 8 }}>
+          <strong>Couldn’t load members.</strong>
+          <div style={{ marginTop: 4 }}>{err}</div>
+          <small style={{ display: "block", marginTop: 6 }}>
+            If this is Vercel, check <code>CONGRESS_API_KEY</code> in Project → Settings → Environment Variables, then redeploy.
+          </small>
+        </div>
+      )}
+      <ul>
+        {members.map((m) => (
+          <li key={m.bioguideId}>
+            <Link href={`/member/${m.bioguideId}`}>{m.firstName} {m.lastName}</Link>
+          </li>
+        ))}
+      </ul>
+    </main>
+  );
+}
+
+// File: pages/states/index.js  (ensure links still work; no change needed unless you want health shown)
