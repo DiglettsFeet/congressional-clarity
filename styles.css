@@ -3,3 +3,16 @@ body { background:#111; color:#eee; font-family:Arial; }
 .container { padding:30px; }
 button { background:#222; color:#fff; border:1px solid #444; padding:8px; }
 button:hover { background:#333; }
+.vote-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.vote-table th, .vote-table td {
+  border: 1px solid #555;
+  padding: 8px;
+}
+
+.vote-table th {
+  background: #222;
+}
