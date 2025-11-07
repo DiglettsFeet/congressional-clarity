@@ -1,16 +1,15 @@
-import { getBillsWithVotes } from "../../lib/congress";
+// pages/api/member-info.js
+import { getMemberVotes, getBillsWithVotes } from "../../lib/congress";
 
 export default async function handler(req, res) {
   const { id } = req.query;
 
-  if (!id)
-    return res.status(400).json({ error: "Missing member id" });
-
   try {
-    const categories = await getBillsWithVotes(id);
-    res.status(200).json({ categories });
+    const votes = await getMemberVotes(id);
+    const categories = await getBillsWithVotes(votes);
+    res.status(200).json({ id, categories });
   } catch (err) {
-    console.error("❌ API /member-info Error:", err.response?.data || err);
-    res.status(500).json({ error: true });
+    console.error("❌ Member Info Error:", err.message);
+    res.status(500).json({ error: "Failed to fetch member info" });
   }
 }
