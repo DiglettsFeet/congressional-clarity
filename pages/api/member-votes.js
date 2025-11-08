@@ -1,9 +1,35 @@
+const subjectMap = {
+  "abortion": ["abortion", "reproductive", "planned parenthood"],
+  "veterans": ["veterans", "veteran", "armed forces", "military benefits"],
+  "health": ["health", "healthcare", "medicine", "public health", "medicare", "medicaid"],
+  "immigration": ["immigration", "border", "asylum", "migrant", "visa"],
+  "economy": ["economy", "inflation", "jobs", "employment", "economic growth"],
+  "gun control": ["gun", "firearm", "second amendment", "assault weapon"],
+  "climate change": ["climate", "carbon", "greenhouse", "emissions", "environment"],
+  "education": ["education", "schools", "student", "college", "loan", "pell grant"],
+  "national security": ["national security", "terrorism", "defense", "cybersecurity"],
+  "taxation": ["tax", "irs", "deduction", "revenue"],
+  "civil rights": ["civil rights", "equality", "discrimination", "lgbt", "voting rights"],
+  "social security": ["social security", "retirement", "ssi"],
+  "foreign policy": ["foreign", "international", "diplomacy", "treaty"],
+  "defense": ["defense", "military", "armed forces", "dod"],
+  "technology": ["technology", "cyber", "computer", "data", "ai", "artificial intelligence", "information", "telecom", "internet"],
+  "infrastructure": ["infrastructure", "transportation", "roads", "bridges", "rail", "airport"],
+  "public lands": ["public lands", "parks", "wilderness", "forests", "blm", "conservation"],
+  "trade": ["trade", "tariff", "import", "export"],
+  "agriculture": ["agriculture", "farm", "rural", "food", "usda"],
+  "energy": ["energy", "oil", "gas", "renewable", "solar", "wind", "fossil", "power"]
+};
+
 export default async function handler(req, res) {
   const { bioguideId, subject } = req.query;
 
   if (!bioguideId || !subject) {
     return res.status(400).json({ error: "Missing bioguideId or subject parameter" });
   }
+
+  const normalizedSubject = subject.toLowerCase();
+  const matchKeywords = subjectMap[normalizedSubject] || [normalizedSubject];
 
   const voterUrl = "https://www.govtrack.us/api/v2/vote_voter?person__bioguideid=" +
                    encodeURIComponent(bioguideId) +
@@ -25,7 +51,12 @@ export default async function handler(req, res) {
         const billData = await billRes.json();
 
         const subjects = (billData.subjects || []).map(s => s.toLowerCase());
-        if (subjects.some(s => s.includes(subject.toLowerCase()))) {
+
+        const matched = subjects.some(sub =>
+          matchKeywords.some(keyword => sub.includes(keyword))
+        );
+
+        if (matched) {
           billVotes.push({
             billNumber: billData.display_number,
             title: billData.title,
