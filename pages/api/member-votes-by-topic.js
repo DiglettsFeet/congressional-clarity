@@ -1,24 +1,26 @@
-
 import { policyAreas, matchBillToTopics } from "../../utils/policyAreas";
 
 export default async function handler(req, res) {
-  const { id, topic } = req.query;
+  const { id, topic, page = '1', limit = '25' } = req.query;
   
   if (!id || !topic) {
     return res.status(400).json({ error: 'Member ID and topic required' });
   }
 
+  const pageNum = parseInt(page);
+  const limitNum = parseInt(limit);
+
   try {
     const apiKey = process.env.CONGRESS_API_KEY;
     const votesData = [];
     let offset = 0;
-    const limit = 250;
+    const voteLimit = 250;
     
-    console.log(`Fetching votes for member ${id}, topic: ${topic}`);
+    console.log(`Fetching votes for member ${id}, topic: ${topic}, page: ${pageNum}`);
     
     // Fetch all votes for the member (entire career)
     while (true) {
-      const votesUrl = `https://api.congress.gov/v3/member/${id}/votes?api_key=${apiKey}&format=json&limit=${limit}&offset=${offset}`;
+      const votesUrl = `https://api.congress.gov/v3/member/${id}/votes?api_key=${apiKey}&format=json&limit=${voteLimit}&offset=${offset}`;
       
       const votesResponse = await fetch(votesUrl);
       
@@ -33,10 +35,10 @@ export default async function handler(req, res) {
       if (votes.length === 0) break;
       
       votesData.push(...votes);
-      offset += limit;
+      offset += voteLimit;
       
       // Safety limit to prevent infinite loops
-      if (offset > 10000 || votes.length < limit) break;
+      if (offset > 10000 || votes.length < voteLimit) break;
     }
     
     console.log(`Total votes fetched: ${votesData.length}`);
@@ -50,6 +52,13 @@ export default async function handler(req, res) {
     
     // Enrich votes with bill details and filter by topic
     const enrichedVotes = [];
+    
+    // Process votes in batches for the requested page
+    // Calculate which votes we need to process based on page
+    const startIdx = (pageNum - 1) * limitNum;
+    const endIdx = startIdx + limitNum;
+    
+    let processedCount = 0;
     
     for (const vote of rollCallVotes) {
       try {
@@ -94,6 +103,11 @@ export default async function handler(req, res) {
             billUrl: `https://www.congress.gov/bill/${congress}th-congress/${billType}-bill/${billNumber}`,
             policyArea: policyArea
           });
+          
+          processedCount++;
+          
+          // Stop processing if we have enough results for pagination
+          if (processedCount >= endIdx) break;
         }
         
         // Add a small delay to avoid rate limiting
@@ -105,14 +119,22 @@ export default async function handler(req, res) {
       }
     }
     
-    console.log(`Filtered votes for ${topic}: ${enrichedVotes.length}`);
-    
     // Sort by date (most recent first)
     enrichedVotes.sort((a, b) => new Date(b.date) - new Date(a.date));
     
+    // Paginate results
+    const paginatedVotes = enrichedVotes.slice(startIdx, endIdx);
+    const totalVotes = enrichedVotes.length;
+    const hasMore = processedCount < rollCallVotes.length && totalVotes >= endIdx;
+    
+    console.log(`Returning ${paginatedVotes.length} votes for page ${pageNum}`);
+    
     res.status(200).json({ 
-      votes: enrichedVotes,
-      total: enrichedVotes.length,
+      votes: paginatedVotes,
+      total: totalVotes,
+      page: pageNum,
+      limit: limitNum,
+      hasMore: hasMore,
       topic: topic
     });
     
