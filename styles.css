@@ -1,6 +1,0 @@
-
-.bill-card { padding:16px; border:1px solid #444; margin-bottom:16px; border-radius:8px; }
-.pill { background:#222; padding:4px 10px; border-radius:12px; margin-right:6px; font-size:12px; }
-.vote.yes { color:green; }
-.vote.no { color:red; }
-.vote["did not vote"] { color:gray; }
