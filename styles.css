@@ -1,0 +1,5 @@
+
+body { background:#111; color:#eee; font-family:Arial; }
+.container { padding:30px; }
+button { background:#222; color:#fff; border:1px solid #444; padding:8px; }
+button:hover { background:#333; }
