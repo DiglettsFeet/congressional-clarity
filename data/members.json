@@ -1,0 +1,17 @@
+{
+  "GA": [
+    {
+      "name": "Andrew Clyde",
+      "bioguideId": "C001123",
+      "chamber": "House",
+      "party": "R",
+      "district": 9
+    },
+    {
+      "name": "Raphael Warnock",
+      "bioguideId": "W000790",
+      "chamber": "Senate",
+      "party": "D"
+    }
+  ]
+}
