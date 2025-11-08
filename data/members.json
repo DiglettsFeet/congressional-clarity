@@ -15,6 +15,13 @@
       "district": 14
     },
     {
+      "name": "Sanford Bishop",
+      "bioguideId": "B000490",
+      "chamber": "House",
+      "party": "D",
+      "district": 2
+    },
+    {
       "name": "Raphael Warnock",
       "bioguideId": "W000790",
       "chamber": "Senate",
@@ -53,34 +60,6 @@
       "bioguideId": "B001323",
       "chamber": "Senate",
       "party": "D"
-    }
-  ],
-  "TX": [
-    {
-      "name": "Dan Crenshaw",
-      "bioguideId": "C001120",
-      "chamber": "House",
-      "party": "R",
-      "district": 2
-    },
-    {
-      "name": "Joaquin Castro",
-      "bioguideId": "C001091",
-      "chamber": "House",
-      "party": "D",
-      "district": 20
-    },
-    {
-      "name": "Ted Cruz",
-      "bioguideId": "C001098",
-      "chamber": "Senate",
-      "party": "R"
-    },
-    {
-      "name": "John Cornyn",
-      "bioguideId": "C001056",
-      "chamber": "Senate",
-      "party": "R"
     }
   ]
 }

@@ -1,0 +1,38 @@
+{
+  "C001123": [
+    {
+      "billNumber": "HR3967",
+      "title": "Honoring our PACT Act of 2022",
+      "summary": "A bill to improve health care and benefits for veterans exposed to toxic substances.",
+      "url": "https://www.congress.gov/bill/117th-congress/house-bill/3967",
+      "vote": "No",
+      "subject": "Veterans"
+    },
+    {
+      "billNumber": "HR1808",
+      "title": "Assault Weapons Ban of 2022",
+      "summary": "A bill to regulate assault weapons.",
+      "url": "https://www.congress.gov/bill/117th-congress/house-bill/1808",
+      "vote": "No",
+      "subject": "Gun Control"
+    }
+  ],
+  "P000197": [
+    {
+      "billNumber": "HR1808",
+      "title": "Assault Weapons Ban of 2022",
+      "summary": "A bill to regulate assault weapons.",
+      "url": "https://www.congress.gov/bill/117th-congress/house-bill/1808",
+      "vote": "Yes",
+      "subject": "Gun Control"
+    },
+    {
+      "billNumber": "HR1",
+      "title": "For the People Act of 2021",
+      "summary": "A bill to expand voting rights and reduce political corruption.",
+      "url": "https://www.congress.gov/bill/117th-congress/house-bill/1",
+      "vote": "Yes",
+      "subject": "Civil Rights"
+    }
+  ]
+}

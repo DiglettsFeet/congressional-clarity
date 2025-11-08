@@ -1,5 +1,6 @@
 import { useRouter } from 'next/router';
 import members from '../../data/members.json';
+import subjects from '../../data/subjects.json';
 import { useEffect, useState } from 'react';
 
 export default function MemberPage() {
@@ -7,7 +8,7 @@ export default function MemberPage() {
   const { id } = router.query;
   const [member, setMember] = useState(null);
   const [subject, setSubject] = useState('');
-  const [bills, setBills] = useState([]);
+  const [votes, setVotes] = useState([]);
 
   useEffect(() => {
     if (id) {
@@ -24,9 +25,9 @@ export default function MemberPage() {
   const handleSubjectChange = async (e) => {
     const subj = e.target.value;
     setSubject(subj);
-    const res = await fetch(`/api/bills?subject=${subj}`);
+    const res = await fetch(`/api/member-votes?bioguideId=${id}&subject=${subj}`);
     const data = await res.json();
-    setBills(data.bills || []);
+    setVotes(data || []);
   };
 
   if (!member) return <p>Loading...</p>;
@@ -43,26 +44,32 @@ export default function MemberPage() {
       </p>
 
       <label htmlFor="subject-select">Choose an issue area:</label>
-      <select id="subject-select" onChange={handleSubjectChange}>
+      <select id="subject-select" onChange={handleSubjectChange} value={subject}>
         <option value="">-- Select a subject --</option>
-        <option value="veterans">Veterans</option>
-        <option value="abortion">Abortion</option>
-        <option value="health">Health</option>
-        <option value="immigration">Immigration</option>
-        <option value="economy">Economy</option>
+        {subjects.map((s) => (
+          <option key={s} value={s}>{s}</option>
+        ))}
       </select>
 
-      {bills.length > 0 && (
-        <ul>
-          {bills.map((bill) => (
-            <li key={bill.number}>
-              <a href={bill.url} target="_blank" rel="noreferrer">
-                {bill.number}: {bill.title}
-              </a>
-              <p>{bill.latestAction?.text}</p>
-            </li>
-          ))}
-        </ul>
+      {votes.length > 0 && (
+        <div>
+          <h2>Bills Voted On Related to "{subject}"</h2>
+          <ul>
+            {votes.map((bill, i) => (
+              <li key={i}>
+                <a href={bill.congressUrl} target="_blank" rel="noreferrer">
+                  {bill.billNumber}: {bill.title}
+                </a>
+                <p>{bill.summary}</p>
+                <strong>Vote: {bill.vote}</strong>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {votes.length === 0 && subject && (
+        <p>No votes found for this subject.</p>
       )}
     </div>
   );
